@@ -27,7 +27,7 @@ var params = args.options('a', {
   'alias': 'filePath',
   'demand': false,
   'describe': 'Path To A File To Upload',
-  'default': __dirname + '/fixtures/signature.png'
+  'default': __dirname + '/fixtures/ffrenchie.png'
 }).argv;
 
 /**
@@ -55,9 +55,11 @@ var FILE_PATH = params.z;
 async.waterfall([function(cb){
   //Creating a random string of characters for the file id
   crypto.randomBytes(32, function(ex, buf) {
-    cb(null, buf.toString('hex'));
+    crypto.randomBytes(32, function(ex1, buf1) {
+      cb(null, buf.toString('hex'), buf1.toString('hex'));
+    });
   });
-}, function submitFormData(uid, cb) {
+}, function submitFormData(uid, picuid, cb) {
 
   //Metrics
   lr.actStart('submitFormData');
@@ -82,8 +84,9 @@ async.waterfall([function(cb){
       timezoneOffset: 0,
       formFields: [
         { fieldId: TEXT_FIELD_ID, fieldValues: ['Load Runner']},
+        { fieldId: '5a69e91c6746d94c32932e59', fieldValues: ['666']},
         { fieldId: FILE_FIELD_ID, fieldValues: [{
-          fileName: 'signature.png',
+          fileName: 'ffrenchie.png',
           hashName: 'filePlaceHolder' + uid,
           contentType: 'binary',
           fileSize: 0,
@@ -91,13 +94,23 @@ async.waterfall([function(cb){
           imgHeader: '',
           fileUpdateTime: now,
           fieldId: FILE_FIELD_ID }]
+        },
+        { fieldId: '5a69e91c6746d94c32932e5a', fieldValues: [{
+          fileName: 'filePlaceHolder' + picuid + '.png',
+          hashName: 'filePlaceHolder' + picuid,
+          contentType: 'base64',
+          fileSize: 0,
+          fileType: 'image/png',
+          imgHeader: "data:image/png;base64,",
+          fileUpdateTime: now,
+          fieldId: '5a69e91c6746d94c32932e5a' }]
         }],
       saveDate: null,
       submitDate: iso,
       uploadStartDate: iso,
       submittedDate: null,
       userId: null,
-      filesInSubmission: ['filePlaceHolder' + uid],
+      filesInSubmission: ['filePlaceHolder' + uid, 'filePlaceHolder' + picuid],
       deviceId: "03DC7AAA71A24ED195EB8A22F0B75E9F",
       status: 'inprogress',
       uploadTaskId: FORM_ID + '_submission_' + now + '_uploadTask'
@@ -113,9 +126,9 @@ async.waterfall([function(cb){
       return cb(body);
     }
 
-    cb(err, uid, body);
+    cb(err, uid, picuid, body);
   });
-}, function submitFormFile(uid, submission, cb) {
+}, function submitFormFile(uid, picuid, submission, cb) {
   lr.actStart('submitFormFile');
 
   var options = {
@@ -129,6 +142,23 @@ async.waterfall([function(cb){
 
   request.post(options, function(err, response, body){
     lr.actEnd('submitFormFile');
+    cb(err, uid, picuid, submission);
+  });
+
+}, function submitFormFileBase64(uid, picuid, submission, cb) {
+  lr.actStart('submitFormFileBase64');
+
+  var options = {
+    method: 'post',
+    formData: {
+      file: fs.createReadStream(FILE_PATH)
+    },
+    json: true,
+    url: SERVER + '/mbaas/forms/' + APP_ID + '/' + submission.submissionId + '/' + FILE_FIELD_ID + '/filePlaceHolder' + picuid + '/submitFormFileBase64'
+  };
+
+  request.post(options, function(err, response, body){
+    lr.actEnd('submitFormFileBase64');
     cb(err, submission);
   });
 
